@@ -1,0 +1,9 @@
+@import "addons.scss";
+@import "group_4.scss";
+
+/* This file prefixes all rules with the theme name to avoid causing conflicts with other themes. */
+/* The actual styles should be defined in group_4.scss */
+.group_4 {
+  @include addons;
+  @include group_4;
+}

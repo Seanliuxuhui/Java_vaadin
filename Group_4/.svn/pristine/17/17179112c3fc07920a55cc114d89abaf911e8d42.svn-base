@@ -1,0 +1,231 @@
+package com.example.group_4;
+
+import java.util.Stack;
+
+import org.vaadin.hene.popupbutton.PopupButton;
+
+import com.example.group_4.DBConnect;
+import com.example.group_4.GoogleMapUI;
+import com.example.group_4.UserInformation;
+import com.example.group_4.events.OpenInfoWindowOnMarkerClickListener;
+import com.vaadin.event.ShortcutAction.KeyCode;
+import com.vaadin.server.FontAwesome;
+import com.vaadin.server.Page;
+import com.vaadin.server.Responsive;
+import com.vaadin.shared.Position;
+import com.vaadin.tapio.googlemaps.GoogleMap;
+import com.vaadin.tapio.googlemaps.client.LatLon;
+import com.vaadin.tapio.googlemaps.client.overlays.GoogleMapInfoWindow;
+import com.vaadin.tapio.googlemaps.client.overlays.GoogleMapMarker;
+import com.vaadin.ui.Alignment;
+import com.vaadin.ui.Button;
+import com.vaadin.ui.Button.ClickEvent;
+import com.vaadin.ui.Button.ClickListener;
+import com.vaadin.ui.CheckBox;
+import com.vaadin.ui.Component;
+import com.vaadin.ui.CssLayout;
+import com.vaadin.ui.HorizontalLayout;
+import com.vaadin.ui.Label;
+import com.vaadin.ui.Notification;
+import com.vaadin.ui.Panel;
+import com.vaadin.ui.PasswordField;
+import com.vaadin.ui.TextField;
+import com.vaadin.ui.VerticalLayout;
+import com.vaadin.ui.themes.ValoTheme;
+
+/**
+ * This class defines the LoginView
+ * It builds the login form, and other components
+ * Creates a DBConnect object to interact with the database when data is given by the user
+ */
+public class LoginView extends VerticalLayout{
+	
+	private UserInformation userinfo;
+	
+	/**
+	 * The Class constructor
+	 * Creates the DBConnect object
+	 * and builds the view
+	 */
+	public LoginView(){
+		final DBConnect db = new DBConnect();
+		setSizeFull();
+		Component loginForm = buildLoginForm();
+		addComponent(loginForm);
+		setComponentAlignment(loginForm, Alignment.MIDDLE_CENTER);
+	}
+	
+	/**
+	 *  A method which returns the loginform component
+	 * Also defines listeners for the fields, and uses the DBConnect object
+	 * @return Layout containing loginform
+	 */
+	private Component buildLoginForm(){
+		final VerticalLayout loginPanel = new VerticalLayout();
+		loginPanel.setSizeUndefined();
+		loginPanel.setSpacing(true);
+		Responsive.makeResponsive(loginPanel);
+		loginPanel.addComponent(buildLabels());
+		loginPanel.addComponent(buildFields());
+		CheckBox remember_me = new CheckBox("Remember Me",true);
+		loginPanel.addComponent(remember_me);
+		return loginPanel;
+		
+	}
+	
+	/**
+	 *A method to build the fields that populate the loginform
+	 * @return The layout containing the field components
+	 */
+	private Component buildFields(){
+		HorizontalLayout fields = new HorizontalLayout();
+		fields.setSpacing(true);
+
+		final TextField username = new TextField("Username");
+		username.setIcon(FontAwesome.USER);
+		username.addStyleName(ValoTheme.TEXTFIELD_INLINE_ICON);
+		username.setId("username");
+		
+		final PasswordField password = new PasswordField("Password");
+		password.setId("password");
+		password.setIcon(FontAwesome.LOCK);
+		password.addStyleName(ValoTheme.TEXTFIELD_INLINE_ICON);
+		
+		final Button signin = new Button("Sign In");
+		signin.setId("signin");
+		signin.addStyleName(ValoTheme.TEXTFIELD_INLINE_ICON);
+		signin.setClickShortcut(KeyCode.ENTER);
+		signin.focus();
+		
+		fields.addComponent(username);
+		fields.addComponent(password);
+		fields.addComponent(signin);
+		fields.setComponentAlignment(signin, Alignment.BOTTOM_LEFT);
+		
+
+		
+		signin.addClickListener(new ClickListener(){
+			public void buttonClick(ClickEvent event) {
+				DBConnect db = new DBConnect();
+				
+				if(username.getValue() != ""){
+					UserInformation user_temp = new UserInformation(username.getValue(),password.getValue(),"","");
+					if(!db.fetch(user_temp)){
+						removeAllComponents();
+						CreateAccount newAccount = new CreateAccount();
+						addComponent(newAccount);
+						
+					}else{
+					
+					    removeAllComponents();
+					    
+					    HorizontalLayout layout = new HorizontalLayout();
+					    setContent(layout);	
+					    
+					    Panel userinfo =new Panel();
+			        	Label welcome = new Label("Welcome\n" + username.getValue());
+			        	System.out.println(username.getValue());
+			        	UserInformation temp_user = db.getUserinfo(username.getValue());
+			        	
+			        	welcome.setId("welcome");
+			        	userinfo.setContent(welcome);
+			        	layout.addComponent(userinfo);
+			        	
+			        	PopupButton Friends = new PopupButton("Friends List");	
+			        	Friends.setId("Friends");
+						addComponent(layout);
+						Friends.setHeight("95%");
+						 		    
+						VerticalLayout Friendslayout = new VerticalLayout();
+						Friends.setContent(Friendslayout);
+						layout.addComponent(Friends);
+						Friendslayout.setId("FriendsLayout");
+					    			  
+					    final GoogleMap temp = GoogleMapUI.setupGoogleMap();
+					    temp.setCenter(new LatLon(Double.valueOf(temp_user.getLongitude()),Double.valueOf(temp_user.getLatitude())));
+					    temp.setId("googletemp");
+					    addComponent(temp);
+					    setExpandRatio(temp,1.0f);
+					    
+					   
+					    Stack <UserInformation> friendList = new Stack<UserInformation>();
+					    
+						DBConnect db1 = new DBConnect();
+						friendList = db1.getAllUserInfo();
+						int counter = 0;
+						while(!friendList.isEmpty()){
+							UserInformation user = friendList.pop();
+							String username = user.getUsername();
+							String password = user.getPassword();
+							GoogleMapMarker marker = new GoogleMapMarker(user.getUsername(),new LatLon(Double.valueOf(user.getLongitude()),Double.valueOf(user.getLatitude())), true, null);
+							final GoogleMapInfoWindow infowindow = new GoogleMapInfoWindow(user.getUsername(),marker);
+							temp.addMarker(marker);
+							OpenInfoWindowOnMarkerClickListener infoWindowOpener = new OpenInfoWindowOnMarkerClickListener(
+					                temp, marker, infowindow);
+					        temp.addMarkerClickListener(infoWindowOpener);
+							if(!username.isEmpty()){
+								Button friend = new Button(username);
+								friend.setId("friend");
+								friend.setVisible(true);
+								Friendslayout.addComponent(friend);
+								counter++;
+						
+								friend.addClickListener(new ClickListener(){
+
+				     			public void buttonClick(ClickEvent event) {
+				    			    
+				     				temp.openInfoWindow(infowindow);
+				     				
+
+				     			}
+				     			
+								});
+							}
+						    
+						}
+						
+						Label num_of_friends = new Label(String.valueOf(counter));
+						num_of_friends.setId("number_of_friends");
+						layout.addComponent(num_of_friends);
+						
+						Panel google_map_operations_panel  = new Panel();
+				        MapOperations map_operations = new MapOperations(temp);
+				        google_map_operations_panel.setContent(map_operations);
+				        addComponent(google_map_operations_panel);
+					    
+					}
+				}else{
+					Notification empty_input = new Notification("Empty Input");
+					empty_input.setPosition(Position.MIDDLE_CENTER);
+					empty_input.show(Page.getCurrent());
+				}
+			}
+
+			private void setContent(HorizontalLayout layout) {
+				
+			}
+			
+		});
+		
+		return fields;
+	}
+	
+	/**
+	 * This method builds the labels that will be added to the view
+	 * @return the layout containing the labels
+	 */
+	private Component buildLabels(){
+		CssLayout labels = new CssLayout();
+		Label welcome = new Label("Welcome");
+		welcome.setId("welcome_label");
+		welcome.setVisible(true);
+		welcome.setEnabled(true);
+		welcome.setSizeUndefined();
+		welcome.addStyleName(ValoTheme.LABEL_H4);
+		welcome.addStyleName(ValoTheme.LABEL_COLORED);
+		labels.addComponent(welcome);
+		return labels;
+	}
+	
+	
+}
